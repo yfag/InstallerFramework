@@ -1,0 +1,65 @@
+# production.environment.yaml
+# Describes the Production environment — which apps go on which servers, at what version,
+# and with what environment-specific parameter values.
+# This is the file that replaces the old install.json + CSV update approach.
+# No passwords. No secrets. Server names and config values only.
+
+environment:
+  name: Production
+
+  # Where to find the .application.yaml files
+  # Relative to this file's directory, or absolute path
+  manifests-path: .
+
+  # Path to the ChocoPackages folder in the bundle.
+  # Structure: {base-path}\bundle\ChocoPackages  — only the base path varies between
+  # environments and bundle releases. Update this line when a new bundle is deployed.
+  # Examples:
+  #   \\deployserver\ElementsInstall\2.172.5\bundle\ChocoPackages   (network share)
+  #   C:\ElementsInstall\2.172.5\bundle\ChocoPackages               (local path)
+  default-package-source: \\deployserver\ElementsInstall\2.172.5\bundle\ChocoPackages
+
+  # How long to keep installation backups on each server
+  backup-retention-days: 14
+
+  # Root directory on target servers where backups are stored
+  backup-root: C:\InstallBackups
+
+  deployments:
+
+    - application: MyWindowsService
+      version: "2.3.1"
+      servers:
+        - PROD-SVC-01
+        - PROD-SVC-02
+      parameters:
+        DatabaseConnection: "Server=prod-db.company.local;Database=MyServiceDb;Integrated Security=True"
+        ApiEndpoint: "https://api.company.local"
+        LogLevel: "Information"
+      health-check: null   # Windows Services don't have HTTP health checks by default
+
+    - application: MyIisApplication
+      version: "1.8.0"
+      servers:
+        - PROD-WEB-01
+        - PROD-WEB-02
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ConnectionStrings:DefaultConnection: "Server=prod-db.company.local;Database=MyAppDb;Integrated Security=True"
+        Logging:LogLevel:Default: "Warning"
+        ExternalApi:BaseUrl: "https://external-api.company.local"
+      health-check:
+        url: "http://localhost/MyApp/health"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: LegacyNetFrameworkApp
+      version: "0.9.4"
+      servers:
+        - PROD-WEB-01
+      parameters:
+        DatabaseConnection: "Server=prod-db.company.local;Database=LegacyDb;Integrated Security=True"
+        ServiceBusConnection: "msmq://prod-msmq.company.local/LegacyQueue"
+      # No health check — legacy app doesn't have a health endpoint

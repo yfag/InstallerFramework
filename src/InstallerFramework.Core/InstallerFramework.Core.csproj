@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <Platforms>x64</Platforms>
+    <!-- Windows-only: WinRM, ServiceController, IIS APIs -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- YAML manifest parsing -->
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <!-- NuGet package handling (offline/UNC sources) -->
+    <PackageReference Include="NuGet.Protocol" Version="6.13.1" />
+    <!-- Explicitly add System.Security.Cryptography.Xml to resolve vulnerability (promote transitive dep) -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.15" />
+    <!-- PowerShell SDK for WinRM remoting -->
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.0" />
+    <!-- Structured logging -->
+    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
+    <!-- Microsoft.Extensions for DI and logging abstractions -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+
+</Project>

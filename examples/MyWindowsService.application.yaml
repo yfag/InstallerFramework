@@ -1,0 +1,28 @@
+# MyWindowsService.application.yaml
+# One file per application — version-controlled alongside the application source.
+# Contains: what the application is, how it runs, what config it needs.
+# Does NOT contain: server names, parameter values, or passwords.
+
+application:
+  name: MyWindowsService
+  type: windows-service
+
+  package:
+    id: Company.MyWindowsService
+    # content-path defaults to "tools" — omit unless your package uses a different layout
+    # Any chocolateyinstall.ps1 / chocolateyuninstall.ps1 in tools\ are ignored by the framework
+
+  service:
+    name: MyWindowsSvc
+    display-name: My Windows Service
+    description: Processes background jobs for the MyApp system.
+    start-type: automatic
+    account: DOMAIN\svc-mywindowssvc$        # gMSA — no password needed, ever
+    install-directory: C:\Services\MyWindowsService
+
+  configuration:
+    template: appsettings.template.json      # Contains {{Token}} placeholders
+    required-parameters:
+      - DatabaseConnection
+      - ApiEndpoint
+      - LogLevel

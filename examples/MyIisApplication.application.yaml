@@ -1,0 +1,35 @@
+# MyIisApplication.application.yaml
+# Example: ASP.NET Core (.NET 10) application hosted in IIS.
+# The package ships its own web.config (ANCM handler pre-configured).
+# The framework sets up the app pool, deploys files, and applies environment config.
+
+application:
+  name: MyIisApplication
+  type: iis-application
+
+  package:
+    id: Company.MyIisApplication
+    # content-path defaults to "tools" — the Elements bundle standard
+
+  iis:
+    site-name: Default Web Site
+    application-path: /MyApp                 # Virtual path under the site
+    physical-path: C:\inetpub\apps\MyApp     # Where files are deployed on disk
+    runtime: Core                            # Core = .NET 5+ / No Managed Code app pool
+                                             # Framework = .NET 4.x / CLR v4.0 app pool
+    app-pool:
+      name: MyAppPool
+      pipeline-mode: Integrated
+      account: DOMAIN\svc-myiisapp$         # gMSA — Windows manages the password
+      idle-timeout-minutes: 0               # 0 = never recycle due to idle
+      auto-start: true
+      start-mode: AlwaysRunning             # Keeps pool warm; use OnDemand for low-traffic apps
+
+  configuration:
+    # Overlay mode: generates appsettings.Production.json that ASP.NET Core merges at runtime.
+    # The shipped appsettings.json is untouched. Env-specific values go in the overlay.
+    overlay-suffix: Production
+    required-parameters:
+      - ConnectionStrings:DefaultConnection  # Colon notation → nested JSON
+      - Logging:LogLevel:Default
+      - ExternalApi:BaseUrl

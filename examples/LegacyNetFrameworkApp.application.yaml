@@ -1,0 +1,31 @@
+# LegacyNetFrameworkApp.application.yaml
+# Example: one of the two .NET Framework 4.5 legacy applications.
+# Key difference: runtime: Framework → app pool uses CLR v4.0 instead of No Managed Code.
+
+application:
+  name: LegacyNetFrameworkApp
+  type: iis-application
+
+  package:
+    id: Company.LegacyNetFrameworkApp
+    source: \\fileserver\packages\legacy
+    content-path: content
+
+  iis:
+    site-name: Default Web Site
+    application-path: /LegacyApp
+    physical-path: C:\inetpub\apps\LegacyApp
+    runtime: Framework                       # ← CLR v4.0 app pool (the key difference)
+    app-pool:
+      name: LegacyAppPool
+      pipeline-mode: Integrated
+      account: DOMAIN\svc-legacyapp$        # gMSA works identically for .NET Framework
+      idle-timeout-minutes: 20
+      auto-start: true
+      start-mode: OnDemand
+
+  configuration:
+    template: appsettings.template.json      # Legacy app uses template mode
+    required-parameters:
+      - DatabaseConnection
+      - ServiceBusConnection
