@@ -17,7 +17,7 @@
     <!-- NuGet package handling (offline/UNC sources) -->
     <PackageReference Include="NuGet.Protocol" Version="6.13.1" />
     <!-- Explicitly add System.Security.Cryptography.Xml to resolve vulnerability (promote transitive dep) -->
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.15" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.18" />
     <!-- PowerShell SDK for WinRM remoting -->
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.0" />
     <!-- Structured logging -->
