@@ -217,6 +217,10 @@ environment:
       servers:
         - WEB-SERVER-01
         - WEB-SERVER-02
+      # application-name-override: WebApp   # Optional — overrides the IIS virtual path.
+                                             # E.g. package "Elements.MyWebApp" normally becomes
+                                             # /Elements.MyWebApp; set this to "MyWebApp" to get
+                                             # /MyWebApp instead. Only applies to IIS applications.
       parameters:
         # Only values that differ from the application manifest defaults
         "AppSettings:SomeKey": "production-specific-value"
@@ -240,6 +244,21 @@ The version to deploy is resolved in this order:
 1. `version:` in the deployment block (environment manifest) — use this to pin a specific version per environment
 2. `version:` in the application manifest — set automatically by `installer prepare`
 3. Error if neither is set
+
+#### IIS application name override
+
+By default, an IIS application gets its virtual path from the `iis.application-path` field in the application manifest — which `installer prepare` sets to match the package ID (e.g. `Elements.ConfigServer` → `/Elements.ConfigServer`).
+
+If you need a shorter URL for a specific environment, set `application-name-override` in the deployment block:
+
+```yaml
+- application: Elements.ConfigServer
+  application-name-override: ConfigServer   # → /ConfigServer instead of /Elements.ConfigServer
+  servers:
+    - WEB-SERVER-01
+```
+
+This affects only the IIS virtual path and app name — the physical path, app pool, and everything else still come from the application manifest. The setting is per-deployment, so different environments can use different names.
 
 #### Parameter resolution
 
@@ -307,7 +326,7 @@ application:
 
 ## Command reference
 
-All commands accept `--help` for full option descriptions.
+All commands accept `--help` for full option descriptions. `--verbose` / `-v` is a global option available on every command — see [Logging](#logging).
 
 ---
 
@@ -349,6 +368,7 @@ installer.exe install --env <file> [options]
 | `--dry-run` | | Validate manifests only — no server connections, no changes. |
 | `--password <pw>` | `-p` | Domain account password. Also accepted via `INSTALLER_DOMAIN_PASSWORD` environment variable. Prompted interactively if not supplied. |
 | `--no-rollback` | | Leave the server in its current state on failure (useful for diagnosing startup errors). |
+| `--verbose` | `-v` | Print step-by-step log output to the console. Without this flag only warnings and errors are shown. |
 
 **Deployment pipeline (per application × per server):**
 
@@ -554,3 +574,26 @@ When a deployment step fails, the orchestrator runs the `RollbackAsync` method o
 - The service or application pool is restarted
 
 **`--no-rollback`** disables this behaviour and leaves the server in whatever state it reached at the point of failure. Use this when diagnosing a problem — for example, to inspect the extracted package files or a partially applied configuration — before manually retrying or rolling back.
+
+---
+
+## Logging
+
+The installer runs quietly by default — only warnings and errors are printed to the console. The summary table is always shown at the end regardless of verbosity.
+
+To see step-by-step progress on the console, add `--verbose` (or `-v`) to any command:
+
+```powershell
+installer.exe install --env .\production.yaml --verbose
+```
+
+**Log files** are always written in full (Debug level and above) to a `log\` subfolder next to the exe, one file per run:
+
+```
+log\
+  installer_20260911_143022.log
+  installer_20260911_151245.log
+  ...
+```
+
+Log files are not automatically deleted — clean up the `log\` folder periodically if disk space is a concern.

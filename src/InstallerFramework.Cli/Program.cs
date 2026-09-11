@@ -9,25 +9,27 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
 
+// --- Detect --verbose before Serilog is configured ---
+// System.CommandLine hasn't parsed yet at this point, so we pre-scan args directly.
+var verbose = args.Contains("--verbose") || args.Contains("-v");
+
 // --- Logging setup ---
-// Console: Information and above
-// File: Debug and above, rolling daily, in %LOCALAPPDATA%\InstallerFramework\logs\
-var logDir = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-    "InstallerFramework", "logs");
+// Console: Warning and above (quiet default) — or Information and above with --verbose.
+//          Spectre.Console output (spinner, summary table) is unaffected by this setting.
+// File:    Debug and above, one timestamped file per run, in a 'log' subfolder next to the exe.
+var logDir  = Path.Combine(AppContext.BaseDirectory, "log");
 Directory.CreateDirectory(logDir);
+var logFile = Path.Combine(logDir, $"installer_{DateTime.Now:yyyyMMdd_HHmmss}.log");
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("System", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .WriteTo.Console(
-        restrictedToMinimumLevel: LogEventLevel.Information,
+        restrictedToMinimumLevel: verbose ? LogEventLevel.Information : LogEventLevel.Warning,
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
-        path: Path.Combine(logDir, "installer-.log"),
-        rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 30,
+        path: logFile,
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
@@ -50,6 +52,13 @@ var deploymentService = provider.GetRequiredService<DeploymentService>();
 
 // --- CLI definition ---
 var rootCommand = new RootCommand("InstallerFramework — deploy .nupkg applications to Windows servers");
+
+// Global option — consumed above by the pre-scan; registered here so System.CommandLine
+// accepts it on any sub-command without treating it as an unknown argument.
+rootCommand.AddGlobalOption(new Option<bool>(
+    aliases: ["--verbose", "-v"],
+    description: "Show detailed step-by-step log output on the console. " +
+                 "Full logs are always written to the log/ folder next to the exe."));
 
 rootCommand.AddCommand(PrepareCommand.Create());
 rootCommand.AddCommand(InstallCommand.Create(deploymentService));
