@@ -10,7 +10,7 @@ publish/
 
 # NuGet
 *.nupkg
-packages/
+/packages/
 
 # Logs
 *.log
