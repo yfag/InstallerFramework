@@ -105,6 +105,16 @@ public class ApplicationDeployment
     [YamlMember(Alias = "backup-retention-days")]
     public int? BackupRetentionDays { get; set; }
 
+    /// <summary>
+    /// Overrides the IIS virtual application name (path) for this deployment.
+    /// Useful when the package ID contains a prefix that should be stripped from the URL.
+    /// Example: package "Elements.ConfigServer" normally becomes /Elements.ConfigServer;
+    /// setting this to "ConfigServer" makes it /ConfigServer instead.
+    /// Only applies to IIS applications — ignored for Windows Services.
+    /// </summary>
+    [YamlMember(Alias = "application-name-override")]
+    public string? ApplicationNameOverride { get; set; }
+
     /// <summary>Optional health check to run after installation to verify the application started correctly.</summary>
     [YamlMember(Alias = "health-check")]
     public HealthCheckConfig? HealthCheck { get; set; }

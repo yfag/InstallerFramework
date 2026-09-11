@@ -122,8 +122,9 @@ public sealed class IisAdapter : IApplicationAdapter
             ? "00:00:00"
             : $"{pool.IdleTimeoutMinutes / 60:D2}:{pool.IdleTimeoutMinutes % 60:D2}:00";
 
-        // Application name without leading slash (appcmd /path: uses /name, site uses "Site/name")
-        var appName = iis.ApplicationPath.TrimStart('/');
+        // Application name without leading slash (appcmd /path: uses /name, site uses "Site/name").
+        // Uses the deployment-level override when set, otherwise the manifest application-path.
+        var appName = context.EffectiveIisApplicationPath.TrimStart('/');
 
         // Build the icacls grant fragment for the app pool identity.
         // (OI)(CI)RX = Object+Container Inherit, Read+Execute — minimum required for IIS.
@@ -257,7 +258,7 @@ Write-Output ""Web application created: $siteName/$appName""
     public async Task UnregisterAsync(DeploymentContext context, CancellationToken cancellationToken = default)
     {
         var iis     = context.ApplicationManifest.Application.Iis!;
-        var appName = iis.ApplicationPath.TrimStart('/');
+        var appName = context.EffectiveIisApplicationPath.TrimStart('/');
 
         var script = $@"
 $ErrorActionPreference = 'Stop'
@@ -300,7 +301,7 @@ if (Test-Path $appcmd) {{
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
             Import-Module WebAdministration -ErrorAction SilentlyContinue
-            $appName  = '{EscapePs(iis.ApplicationPath)}'.TrimStart('/')
+            $appName  = '{EscapePs(context.EffectiveIisApplicationPath)}'.TrimStart('/')
             $poolPath = 'IIS:\AppPools\{EscapePs(iis.AppPool.Name)}'
             $appPath  = ""IIS:\Sites\{EscapePs(iis.SiteName)}\$appName""
 

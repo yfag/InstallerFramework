@@ -91,6 +91,18 @@ public sealed class DeploymentContext
     public string ApplicationName => ApplicationManifest.Application.Name;
 
     /// <summary>
+    /// Resolved IIS virtual application path: the deployment-block
+    /// <c>application-name-override</c> if set, otherwise the application manifest's
+    /// <c>iis.application-path</c>.  Always has a leading slash.
+    /// Pipeline steps and adapters should read this instead of
+    /// <c>ApplicationManifest.Application.Iis.ApplicationPath</c> directly.
+    /// </summary>
+    public string EffectiveIisApplicationPath =>
+        !string.IsNullOrWhiteSpace(Deployment.ApplicationNameOverride)
+            ? "/" + Deployment.ApplicationNameOverride.TrimStart('/')
+            : ApplicationManifest.Application.Iis?.ApplicationPath ?? string.Empty;
+
+    /// <summary>
     /// Resolved target version: the deployment-block version if set, otherwise the
     /// application manifest's own version field.  Pipeline steps should always read
     /// this rather than <c>Deployment.Version</c> directly.
