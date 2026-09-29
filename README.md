@@ -221,6 +221,9 @@ environment:
                                              # E.g. package "Elements.MyWebApp" normally becomes
                                              # /Elements.MyWebApp; set this to "MyWebApp" to get
                                              # /MyWebApp instead. Only applies to IIS applications.
+      # install-directory-override: D:\inetpub\wwwroot\MyWebApp
+                                             # Optional — overrides the physical path (IIS) or
+                                             # install directory (Windows Service) for this environment.
       parameters:
         # Only values that differ from the application manifest defaults
         "AppSettings:SomeKey": "production-specific-value"
@@ -259,6 +262,26 @@ If you need a shorter URL for a specific environment, set `application-name-over
 ```
 
 This affects only the IIS virtual path and app name — the physical path, app pool, and everything else still come from the application manifest. The setting is per-deployment, so different environments can use different names.
+
+#### Install directory override
+
+By default, the install directory for a Windows Service (or the physical path for an IIS application) comes from the `service.install-directory` / `iis.physical-path` field in the application manifest.
+
+If different environments use different drives or folder structures, you can override the path per deployment with `install-directory-override`:
+
+```yaml
+- application: MyService
+  install-directory-override: E:\Program Files\MyService   # Overrides service.install-directory
+  servers:
+    - APP-SERVER-01
+
+- application: MyWebApp
+  install-directory-override: D:\inetpub\wwwroot\MyWebApp  # Overrides iis.physical-path
+  servers:
+    - WEB-SERVER-01
+```
+
+The override applies to all deployment operations: file extraction, backup, permissions, and version detection. The application manifest itself is unchanged, so other environments continue to use the path defined there.
 
 #### Parameter resolution
 
