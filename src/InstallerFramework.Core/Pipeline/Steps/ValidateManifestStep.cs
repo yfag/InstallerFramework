@@ -42,17 +42,17 @@ public sealed class ValidateManifestStep : IDeploymentStep
                 errors.Add("No version specified. Set 'version' in the application manifest or in the environment deployment block.");
         }
 
-        // Windows Service: install directory must be set
-        if (app.Type == ApplicationType.WindowsService && string.IsNullOrWhiteSpace(app.Service?.InstallDirectory))
-            errors.Add("Service 'install-directory' is not set in the application manifest.");
+        // Windows Service: install directory must be set (manifest OR deployment-level override)
+        if (app.Type == ApplicationType.WindowsService && string.IsNullOrWhiteSpace(context.EffectiveInstallDirectory))
+            errors.Add("Service 'install-directory' is not set. Set it in the application manifest or use 'install-directory-override' in the environment deployment block.");
 
-        // IIS: physical path and application path must be set
+        // IIS: physical path and application path must be set (physical-path allows deployment override)
         if (app.Type == ApplicationType.IisApplication)
         {
             if (string.IsNullOrWhiteSpace(app.Iis?.ApplicationPath))
                 errors.Add("IIS 'application-path' is not set in the application manifest.");
-            if (string.IsNullOrWhiteSpace(app.Iis?.PhysicalPath))
-                errors.Add("IIS 'physical-path' is not set in the application manifest.");
+            if (string.IsNullOrWhiteSpace(context.EffectiveInstallDirectory))
+                errors.Add("IIS 'physical-path' is not set. Set it in the application manifest or use 'install-directory-override' in the environment deployment block.");
             if (string.IsNullOrWhiteSpace(app.Iis?.AppPool?.Name))
                 errors.Add("IIS app pool 'name' is not set in the application manifest.");
         }

@@ -23,12 +23,8 @@ public sealed class RemoveInstallDirectoryStep : IDeploymentStep
         DeploymentContext context,
         CancellationToken cancellationToken = default)
     {
-        var installDir = context.ApplicationManifest.Application.Type switch
-        {
-            ApplicationType.WindowsService => context.ApplicationManifest.Application.Service?.InstallDirectory,
-            ApplicationType.IisApplication => context.ApplicationManifest.Application.Iis?.PhysicalPath,
-            _                              => null
-        };
+        var installDir = context.EffectiveInstallDirectory;
+        if (string.IsNullOrWhiteSpace(installDir)) installDir = null;
 
         if (string.IsNullOrWhiteSpace(installDir))
         {

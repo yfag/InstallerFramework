@@ -124,12 +124,8 @@ public static class StatusCommand
             };
 
             // Read installed version marker
-            var installDir = appManifest.Application.Type switch
-            {
-                ApplicationType.WindowsService => appManifest.Application.Service?.InstallDirectory,
-                ApplicationType.IisApplication => appManifest.Application.Iis?.PhysicalPath,
-                _ => null
-            };
+            var installDir = context.EffectiveInstallDirectory;
+            if (string.IsNullOrWhiteSpace(installDir)) installDir = null;
 
             string? installedVersion = null;
             if (installDir is not null)

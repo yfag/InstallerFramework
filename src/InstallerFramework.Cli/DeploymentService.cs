@@ -242,7 +242,7 @@ public sealed class DeploymentService
         // unless --force was specified.
         if (!force)
         {
-            var installedVersion = ReadInstalledVersionFromAdminShare(appManifest, server);
+            var installedVersion = ReadInstalledVersionFromAdminShare(appManifest, deployment, server);
             if (installedVersion is not null &&
                 installedVersion.Equals(targetVersion, StringComparison.OrdinalIgnoreCase))
             {
@@ -368,14 +368,10 @@ public sealed class DeploymentService
     /// </summary>
     private static string? ReadInstalledVersionFromAdminShare(
         ApplicationManifest appManifest,
+        ApplicationDeployment deployment,
         string server)
     {
-        var installDir = appManifest.Application.Type switch
-        {
-            ApplicationType.WindowsService => appManifest.Application.Service?.InstallDirectory,
-            ApplicationType.IisApplication => appManifest.Application.Iis?.PhysicalPath,
-            _ => null
-        };
+        var installDir = ResolveEffectiveInstallDirectory(appManifest, deployment);
 
         if (string.IsNullOrWhiteSpace(installDir)) return null;
 
@@ -437,6 +433,24 @@ public sealed class DeploymentService
         !string.IsNullOrWhiteSpace(deployment.Version)
             ? deployment.Version
             : appManifest.Application.Version ?? string.Empty;
+
+    /// <summary>
+    /// Resolves the effective install directory / physical path.
+    /// Priority: deployment-block install-directory-override → application manifest path.
+    /// </summary>
+    internal static string? ResolveEffectiveInstallDirectory(
+        ApplicationManifest appManifest,
+        ApplicationDeployment deployment)
+    {
+        if (!string.IsNullOrWhiteSpace(deployment.InstallDirectoryOverride))
+            return deployment.InstallDirectoryOverride;
+        return appManifest.Application.Type switch
+        {
+            ApplicationType.WindowsService => appManifest.Application.Service?.InstallDirectory,
+            ApplicationType.IisApplication => appManifest.Application.Iis?.PhysicalPath,
+            _ => null
+        };
+    }
 
     private static string ToAdminSharePath(string server, string localPath)
     {

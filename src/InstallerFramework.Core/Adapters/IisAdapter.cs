@@ -179,7 +179,7 @@ $appcmd   = ""$env:SystemRoot\system32\inetsrv\appcmd.exe""
 $poolName = '{EscapePs(pool.Name)}'
 $siteName = '{EscapePs(iis.SiteName)}'
 $appName  = '{EscapePs(appName)}'
-$physPath = '{EscapePs(iis.PhysicalPath)}'
+$physPath = '{EscapePs(context.EffectiveInstallDirectory)}'
 $clrVer   = '{EscapePs(clrVersion)}'
 
 if (-not (Test-Path $appcmd)) {{

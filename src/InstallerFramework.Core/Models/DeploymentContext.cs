@@ -91,6 +91,22 @@ public sealed class DeploymentContext
     public string ApplicationName => ApplicationManifest.Application.Name;
 
     /// <summary>
+    /// Resolved install directory: the deployment-block <c>install-directory-override</c> if set,
+    /// otherwise <c>service.install-directory</c> for Windows Services or <c>iis.physical-path</c>
+    /// for IIS applications.  All pipeline steps and adapters should read this instead of accessing
+    /// the manifest paths directly so that the deployment-level override is always honoured.
+    /// </summary>
+    public string EffectiveInstallDirectory =>
+        !string.IsNullOrWhiteSpace(Deployment.InstallDirectoryOverride)
+            ? Deployment.InstallDirectoryOverride
+            : ApplicationManifest.Application.Type switch
+            {
+                ApplicationType.WindowsService => ApplicationManifest.Application.Service?.InstallDirectory ?? string.Empty,
+                ApplicationType.IisApplication => ApplicationManifest.Application.Iis?.PhysicalPath ?? string.Empty,
+                _ => string.Empty
+            };
+
+    /// <summary>
     /// Resolved IIS virtual application path: the deployment-block
     /// <c>application-name-override</c> if set, otherwise the application manifest's
     /// <c>iis.application-path</c>.  Always has a leading slash.

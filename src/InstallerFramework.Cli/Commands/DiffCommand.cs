@@ -130,8 +130,8 @@ public static class DiffCommand
 
             var installDir = appManifest.Application.Type switch
             {
-                ApplicationType.WindowsService => appManifest.Application.Service?.InstallDirectory,
-                ApplicationType.IisApplication => appManifest.Application.Iis?.PhysicalPath,
+                ApplicationType.WindowsService or ApplicationType.IisApplication
+                    => DeploymentService.ResolveEffectiveInstallDirectory(appManifest, deployment),
                 _ => null
             };
 

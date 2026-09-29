@@ -106,6 +106,17 @@ public class ApplicationDeployment
     public int? BackupRetentionDays { get; set; }
 
     /// <summary>
+    /// Overrides the install directory (Windows Service) or physical path (IIS) for this deployment.
+    /// Useful when the same application manifest is shared across environments that use different
+    /// drive letters or folder structures.
+    /// Examples:
+    ///   <c>E:\Program Files\MyService</c>  — Windows Service on a different drive
+    ///   <c>D:\inetpub\apps\MyWebApp</c>    — IIS physical path on a non-default drive
+    /// </summary>
+    [YamlMember(Alias = "install-directory-override")]
+    public string? InstallDirectoryOverride { get; set; }
+
+    /// <summary>
     /// Overrides the IIS virtual application name (path) for this deployment.
     /// Useful when the package ID contains a prefix that should be stripped from the URL.
     /// Example: package "Elements.ConfigServer" normally becomes /Elements.ConfigServer;

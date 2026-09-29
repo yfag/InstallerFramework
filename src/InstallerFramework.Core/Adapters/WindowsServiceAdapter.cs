@@ -78,7 +78,8 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
         var svc     = context.ApplicationManifest.Application.Service!;
         var account = context.EffectiveAccount;  // resolved: per-app → env default → built-in fallback
 
-        var binaryPath = Path.Combine(svc.InstallDirectory, $"{svc.Name}.exe");
+        var installDir = context.EffectiveInstallDirectory;
+        var binaryPath = Path.Combine(installDir, $"{svc.Name}.exe");
         if (!string.IsNullOrWhiteSpace(svc.BinaryPathSuffix))
             binaryPath += $" {svc.BinaryPathSuffix}";
 
@@ -153,7 +154,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
         if (!account.IsLocalSystem) // LocalSystem has implicit full access; all others need explicit grant
         {
             var aclScript =
-                $"icacls \"{EscapePs(svc.InstallDirectory)}\" " +
+                $"icacls \"{EscapePs(installDir)}\" " +
                 $"/grant \"{EscapePs(account.AccountName)}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
                 $"if ($LASTEXITCODE -ne 0) {{ Write-Warning \"icacls grant returned exit $LASTEXITCODE\" }}\n" +
                 $"else {{ Write-Output \"File permissions set: {EscapePs(account.AccountName)} has ReadAndExecute\" }}";

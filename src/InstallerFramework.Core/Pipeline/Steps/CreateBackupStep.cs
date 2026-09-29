@@ -85,13 +85,8 @@ public sealed class CreateBackupStep : IDeploymentStep
 
     private static string? GetInstallDirectory(DeploymentContext context)
     {
-        var app = context.ApplicationManifest.Application;
-        return app.Type switch
-        {
-            ApplicationType.WindowsService => app.Service?.InstallDirectory,
-            ApplicationType.IisApplication => app.Iis?.PhysicalPath,
-            _ => null
-        };
+        var dir = context.EffectiveInstallDirectory;
+        return string.IsNullOrWhiteSpace(dir) ? null : dir;
     }
 
     private static string EscapePs(string path) => path.Replace("'", "''");

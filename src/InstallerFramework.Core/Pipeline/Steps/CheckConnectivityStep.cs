@@ -153,15 +153,9 @@ Write-Output ""OK:$($cert.Subject) — expires $($cert.NotAfter.ToString('yyyy-M
 
     private static string? GetVersionFilePath(DeploymentContext context)
     {
-        var app = context.ApplicationManifest.Application;
-        return app.Type switch
-        {
-            ApplicationType.WindowsService when app.Service is not null =>
-                Path.Combine(app.Service.InstallDirectory, ".installer-version"),
-            ApplicationType.IisApplication when app.Iis is not null =>
-                Path.Combine(app.Iis.PhysicalPath, ".installer-version"),
-            _ => null
-        };
+        var installDir = context.EffectiveInstallDirectory;
+        return string.IsNullOrWhiteSpace(installDir) ? null
+            : Path.Combine(installDir, ".installer-version");
     }
 
     public Task RollbackAsync(DeploymentContext context, CancellationToken cancellationToken = default)
