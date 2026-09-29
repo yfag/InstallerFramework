@@ -322,7 +322,7 @@ public sealed class DeploymentService
         // Fast pre-check via admin share — no WinRM session required.
         // If the .installer-version marker is absent the application was never deployed
         // by this tool (or was already removed), so there is nothing to uninstall.
-        var installedVersion = ReadInstalledVersionFromAdminShare(appManifest, server);
+        var installedVersion = ReadInstalledVersionFromAdminShare(appManifest, deployment, server);
         if (installedVersion is null)
         {
             appLogger.LogInformation(
