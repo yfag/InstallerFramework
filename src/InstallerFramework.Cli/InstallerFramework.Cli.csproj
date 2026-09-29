@@ -8,6 +8,8 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>installer</AssemblyName>
     <RootNamespace>InstallerFramework.Cli</RootNamespace>
+    <!-- Default version for local builds; CI overrides it from the v* tag via -p:Version -->
+    <Version>1.0.5</Version>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <!-- Produce a single self-contained .exe for distribution to offline environments -->

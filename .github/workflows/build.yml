@@ -33,10 +33,12 @@ jobs:
         run: dotnet test InstallerFramework.sln -c Release --no-build --verbosity normal
 
       - name: Publish
-        run: >
-          dotnet publish src/InstallerFramework.Cli/InstallerFramework.Cli.csproj
-          -c Release -r win-x64 --self-contained --no-restore
-          -o publish
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          dotnet publish src/InstallerFramework.Cli/InstallerFramework.Cli.csproj `
+            -c Release -r win-x64 --self-contained --no-restore `
+            -p:Version=$version `
+            -o publish
         if: startsWith(github.ref, 'refs/tags/v')
 
       - name: Upload artifact
