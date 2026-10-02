@@ -3,21 +3,63 @@
 # and with what environment-specific parameter values.
 # This is the file that replaces the old install.json + CSV update approach.
 # No passwords. No secrets. Server names and config values only.
+# NB! SETTINGS ARE CASE SENSITIVE 
+
+# IMPORTANT!! Names that needs updating in this document (use search and replace in order as below for least hassle ;-) ):
+
+# INSTALLERSERVER = NetBIOS (short name) for the server/share where bundles and environment definitions are stored.
+# BACKENDSERVER_FQDN = Fully qualified domain name for the backend server or CNAME alias.
+# BACKENDSERVER = NetBios name (short name) for the backend server(s).
+# FRONTENDSERVER_FQDN = Fully qualified domain name for the frontend server or CNAME alias.
+# FRONTENDSERVER = NetBios name (short name) for the frontend server(s).
+# SERVICESERVER_FQDN = Fully qualified domain name for the service server or CNAME alias.
+# SERVICESERVER = NetBios name (short name) for the service server(s).
+# SEARCHSERVER_FQDN = Fully qualified domain name for the search server or CNAME alias.
+# SEARCHSERVER = NetBios name (short name) for the search server(s).
+# SCOPES = Scope or scopes that the application should handle (comma separated).
+# CONFIGSERVER_READONLY_PASSWORD = Password used by applications to read config from ConfigServer (NB! Used twice in the ConfigServer config)
+# CONFIGSERVER_BASIC_AUTH_PASSWORD = Password for BasicAuthentication in the ConfigServer/Editor
+# CONFIGSERVER_PASSWORD_ENCRYPTION_KEY = Encryption key for the passwords entered in ConfigServer (NOT the password for Read-only access or BasicAuth)
+# DECRYPTION_KEY = machinekey_decryptionKey as generated with ElementsMachineKeyGenerator.exe
+# DECRYPTION_METHOD = machinekey_decryption as generated with ElementsMachineKeyGenerator.exe
+# VALIDATION_KEY = machinekey_validationKey as generated with ElementsMachineKeyGenerator.exe
+# VALIDATION_METHOD = machinekey_validation as generated with ElementsMachineKeyGenerator.exe
+# FILESERVER = NetBIOS name (short name) for the server/share where config/documents are stored (NB! check UNC path on each application)
+# PROGSERVER_FQDN = NetBIOS (short name) for the server/share where the 3rd Party application lives (e.g. RabbitMQ, PostgreSQL etc.)
+# RABBITMQ_USERNAME = RabbitMQ username
+# RABBITMQ_PASSWORD = RabbitMQ password
+# OUTLOOKPLUGIN_APPREGCLIENTID = Application Registration Clinet Id from EntraID
+# INDEXERTRACKER_DB_NAME = Name of the IndexerTracker database
+# INDEXERTRACKER_DB_USER = Username for the IndexerTracker database
+# INDEXERTRACKER_DB_PASSWORD = Password to det IndexerTracker database user
+# NOTIFICATION_DB_NAME = Name of the IndexerTracker database
+# NOTIFICATION_DB_USER = Username for the IndexerTracker database
+# NOTIFICATION_DB_PASSWORD = Password to det IndexerTracker database user
 
 environment:
   name: Production
+  domain-account:
+    # If use-gmsa is set to false, installer will ask for account password every time it is run.
+    use-gmsa: false
+    account: DOMAIN\serviceuser
 
   # Where to find the .application.yaml files
   # Relative to this file's directory, or absolute path
-  manifests-path: .
+  manifests-path: \\INSTALLERSERVER\ElementsInstall\ENV\manifests
 
   # Path to the ChocoPackages folder in the bundle.
   # Structure: {base-path}\bundle\ChocoPackages  — only the base path varies between
   # environments and bundle releases. Update this line when a new bundle is deployed.
   # Examples:
-  #   \\deployserver\ElementsInstall\2.172.5\bundle\ChocoPackages   (network share)
-  #   C:\ElementsInstall\2.172.5\bundle\ChocoPackages               (local path)
-  default-package-source: \\deployserver\ElementsInstall\2.172.5\bundle\ChocoPackages
+  #   \\deployserver\ElementsInstall\bundle\ChocoPackages   (network share)
+  #   C:\ElementsInstall\bundle\ChocoPackages               (local path)
+  default-package-source: \\INSTALLERSERVER\[ElementsBundle_path]\ChocoPackages
+
+  # Parameters shared between all applications
+  shared-parameters:
+    AppSettings:ConfigServer.BaseUrl: https://BACKENDSERVER_FQDN/Elements.ConfigServer
+    AppSettings:ConfigServer.Password: CONFIGSERVER_READONLY_PASSWORD
+    AppSettings:ConfigServer.Scopes: SCOPES
 
   # How long to keep installation backups on each server
   backup-retention-days: 14
@@ -26,40 +68,685 @@ environment:
   backup-root: C:\InstallBackups
 
   deployments:
-
-    - application: MyWindowsService
-      version: "2.3.1"
+  # Applications that are commented out are not part of 2026.x bundle - only applicable in 2025.x
+# BACKENDSERVER:
+    - application: Elements.ConfigServer
+      # application-name-override: ConfigServer
+      # install-directory-override: D:\inetpub\wwwroot\AppName
       servers:
-        - PROD-SVC-01
-        - PROD-SVC-02
-      parameters:
-        DatabaseConnection: "Server=prod-db.company.local;Database=MyServiceDb;Integrated Security=True"
-        ApiEndpoint: "https://api.company.local"
-        LogLevel: "Information"
-      health-check: null   # Windows Services don't have HTTP health checks by default
-
-    - application: MyIisApplication
-      version: "1.8.0"
-      servers:
-        - PROD-WEB-01
-        - PROD-WEB-02
+        - BACKENDSERVER
+        #- BACKENDSERVER2
       parameters:
         # Colon-notation maps to nested JSON in appsettings.Production.json
-        ConnectionStrings:DefaultConnection: "Server=prod-db.company.local;Database=MyAppDb;Integrated Security=True"
-        Logging:LogLevel:Default: "Warning"
-        ExternalApi:BaseUrl: "https://external-api.company.local"
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/Elements.ConfigServer
+        Appsettings:ConfigDir: \\FILESERVER\PROD\Config
+        Appsettings:SchemaDir: \\FILESERVER\PROD\Schema
+        Appsettings:Password: CONFIGSERVER_READONLY_PASSWORD
+        Appsettings:PasswordEncryptionKey: CONFIGSERVER_PASSWORD_ENCRYPTION_KEY
+        Auth:Ui:BasicAuth:Password: CONFIGSERVER_BASIC_AUTH_PASSWORD
+        Auth:BasicAuth:Password: CONFIGSERVER_READONLY_PASSWORD
       health-check:
-        url: "http://localhost/MyApp/health"
+        url: "https://BACKENDSERVER_FQDN/Elements.ConfigServer/api/version"
         timeout-seconds: 30
         retry-count: 5
         retry-interval-seconds: 5
         expected-status: "200"
 
-    - application: LegacyNetFrameworkApp
-      version: "0.9.4"
+    # - application: nCoreOData
+      # # application-name-override: nCoreODataXXX
+      # # install-directory-override: D:\inetpub\wwwroot\AppName
+      # servers:
+        # - BACKENDSERVER
+        # #- BACKENDSERVER2
+      # parameters:
+        # # Colon-notation maps to nested JSON in appsettings.Production.json
+        # ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/nCoreOData
+        # AppSettings:machinekey_decryptionKey: DECRYPTION_KEY
+        # AppSettings:machinekey_decryption: DECRYPTION_METHOD
+        # AppSettings:machinekey_validationKey: VALIDATION_KEY
+        # AppSettings:machinekey_validation: VALIDATION_METHOD
+        # OpenTelemetry:LoggingSetup: LoggingToOtelOnly
+      # health-check:
+        # url: "https://BACKENDSERVER_FQDN/nCoreOData/api/version"
+        # timeout-seconds: 30
+        # retry-count: 5
+        # retry-interval-seconds: 5
+        # expected-status: "200"
+
+    # - application: nCore
+      # # application-name-override: nCoreXXX
+      # # install-directory-override: D:\inetpub\wwwroot\AppName
+      # servers:
+        # - BACKENDSERVER
+        # #- BACKENDSERVER2
+      # parameters:
+        # # Colon-notation maps to nested JSON in appsettings.Production.json
+        # ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/nCore
+        # OpenTelemetry:LoggingSetup: LoggingToOtelOnly
+        # ## CONFIGSERVER AND MACHINEKEY SETTINGS MUST BE SET MANUALLY IN Web.Config FOR nCore ##
+      # health-check:
+        # url: "https://BACKENDSERVER_FQDN/nCore"
+        # timeout-seconds: 60
+        # retry-count: 10
+        # retry-interval-seconds: 5
+        # expected-status: "200"
+
+    - application: nCoreNet
+      # application-name-override: nCoreNetXXX
+      # install-directory-override: D:\inetpub\wwwroot\AppName
       servers:
-        - PROD-WEB-01
+        - BACKENDSERVER
+        #- BACKENDSERVER2
       parameters:
-        DatabaseConnection: "Server=prod-db.company.local;Database=LegacyDb;Integrated Security=True"
-        ServiceBusConnection: "msmq://prod-msmq.company.local/LegacyQueue"
-      # No health check — legacy app doesn't have a health endpoint
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/nCoreNet
+        AppSettings:machinekey_decryptionKey: DECRYPTION_KEY
+        AppSettings:machinekey_decryption: DECRYPTION_METHOD
+        AppSettings:machinekey_validationKey: VALIDATION_KEY
+        AppSettings:machinekey_validation: VALIDATION_METHOD
+        OpenTelemetry:LoggingSetup: LoggingToOtelOnly
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/nCoreNet/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: nCoreEis
+      # application-name-override: nCoreEisXXX
+      # install-directory-override: D:\inetpub\wwwroot\AppName
+      servers:
+        - BACKENDSERVER
+        #- BACKENDSERVER2
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/nCoreEis
+        AppSettings:machinekey_decryptionKey: DECRYPTION_KEY
+        AppSettings:machinekey_decryption: DECRYPTION_METHOD
+        AppSettings:machinekey_validationKey: VALIDATION_KEY
+        AppSettings:machinekey_validation: VALIDATION_METHOD
+        OpenTelemetry:LoggingSetup: LoggingToOtelOnly
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/nCoreEis/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: PublicApi.Archive
+      # install-directory-override: D:\inetpub\wwwroot\AppName
+      servers:
+        - BACKENDSERVER
+        #- BACKENDSERVER2
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/PublicApi.Archive
+        Swagger:Security:IdentityBaseUrl: https://FRONTENDSERVER_FQDN/IdentityServer
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/PublicApi.Archive/swagger"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: PublicApi.Document
+      # install-directory-override: D:\inetpub\wwwroot\AppName
+      servers:
+        - BACKENDSERVER
+        #- BACKENDSERVER2
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/PublicApi.Document
+        Swagger:Security:IdentityBaseUrl: https://FRONTENDSERVER_FQDN/IdentityServer
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/PublicApi.Document/swagger"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: SignalRServer
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/SignalRServer
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/SignalRServer/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: DocumentServices
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/DocumentServices
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/DocumentServices/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.PdfConverter
+      application-name-override: PdfConverter
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/PdfConverter
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/PdfConverter/api/version"
+        timeout-seconds: 60
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: PdfConvertMicroserviceMTProducer
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/PdfConvertMicroserviceMTProducer
+        Settings:Provider: RabbitMQ
+        Settings:RabbitMqHost: PROGSERVER_FQDN
+        Settings:RabbitMqUsername: RABBITMQ_USERNAME
+        Settings:RabbitMqPassword: RABBITMQ_PASSWORD
+        Settings:FileSharePath: \\FILESERVER\PROD\Storage\Temp\PdfDocProcessing\PixEditPdfConverter\
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/PdfConvertMicroserviceMTProducer/ConvertPDF"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: DispatchValidator
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/DispatchValidator
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/DispatchValidator/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.BlobStorage
+      application-name-override: BlobStorage
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/BlobStorage
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/BlobStorage/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: GeoIntegration
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/GeoIntegration
+        ## CONFIGSERVER SETTINGS MUST BE SET MANUALLY IN Web.Config FOR GeoIntegration ##
+      health-check:
+        url: https://BACKENDSERVER_FQDN/GeoIntegration
+        retry-count: 10
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: ReportGenerationService
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/ReportGenerationService
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/ReportGenerationService/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: PdfToolbox
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/PdfToolbox
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/PdfToolbox/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: ReservationRegistrySearcher
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/ReservationRegistrySearcher
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/ReservationRegistrySearcher/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: ShortTermStorage
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/ShortTermStorage
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/ShortTermStorage/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.ElectronicDocumentReceiver
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/Elements.ElectronicDocumentReceiver
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/Elements.ElectronicDocumentReceiver/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: EinnsynPackageGenerator
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/EinnsynPackageGenerator
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/EinnsynPackageGenerator/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: NotificationBackend
+      servers:
+        - BACKENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        AppSettings:PostgresConnectionString: host=PROGSERVER_FQDN;port=5432;database=NOTIFICATION_DB_NAME;user id=NOTIFICATION_DB_USER;password=NOTIFICATION_DB_PASSWORD;timezone=GMT
+        ExternalApi:BaseUrl: https://BACKENDSERVER_FQDN/NotificationBackend
+      health-check:
+        url: "https://BACKENDSERVER_FQDN/NotificationBackend/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+# FRONTENDSERVER:
+    - application: Elements.IdentityServer
+      application-name-override: IdentityServer
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/IdentityServer
+        ConfigServer:BaseUrl: https://BACKENDSERVER_FQDN/Elements.ConfigServer
+        ConfigServer:Password: CONFIGSERVER_READONLY_PASSWORD
+        ConfigServer:Scopes: SCOPES
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/IdentityServer/api/version"
+        timeout-seconds: 60
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/Elements
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/Elements/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.AddressProviders.Enhetsregisteret
+      application-name-override: Enhetsregisteret
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/Enhetsregisteret
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/Enhetsregisteret/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.AddressProviders.Folkeregisteret
+      application-name-override: Folkeregisteret
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/Folkeregisteret
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/Folkeregisteret/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    # - application: Elements.AddressProviders.MatrikkelenHjemmelshaver
+      # application-name-override: MatrikkelenHjemmelshaver
+      # servers:
+        # - FRONTENDSERVER
+      # parameters:
+        # # Colon-notation maps to nested JSON in appsettings.Production.json
+        # ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/MatrikkelenHjemmelshaver
+      # health-check:
+        # url: "https://FRONTENDSERVER_FQDN/MatrikkelenHjemmelshaver/api/version"
+        # timeout-seconds: 30
+        # retry-count: 5
+        # retry-interval-seconds: 5
+        # expected-status: "200"
+
+    - application: Elements.SearchProvider.Matrikkelen
+      application-name-override: SearchProviderMatrikkelen
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/SearchProviderMatrikkelen
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/SearchProviderMatrikkelen/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: ElementsSearch.UI.Backend
+      application-name-override: ElementsSearchUI
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/ElementsSearchUI
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/ElementsSearchUI/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.Publikum
+      #application-name-override: Publikum
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/Elements.Publikum
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/Elements.Publikum/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+        
+    - application: SolrSearchService
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/SolrSearchService
+        ConfigServer:BaseUrl: https://BACKENDSERVER_FQDN/Elements.ConfigServer
+        ConfigServer:Password: CONFIGSERVER_READONLY_PASSWORD
+        ConfigServer:Scopes: SCOPES        
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/SolrSearchService/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.OfficeAddins
+      application-name-override: OfficeAddins
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/OfficeAddins
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/OfficeAddins/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.OutlookPlugIn
+      application-name-override: OutlookPlugIn
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/OutlookPlugIn
+        AppSettings:AppRegistrationClientId: OUTLOOKPLUGIN_APPREGCLIENTID
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/OutlookPlugIn/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Elements.SharePoint.Backend
+      application-name-override: SharePointBackend
+      servers:
+        - FRONTENDSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://FRONTENDSERVER_FQDN/SharePointBackend
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/SharePointBackend/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+# SERVICESERVER:
+    - application: Elements.PdfConverterController
+      servers:
+        - SERVICESERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        appSettings:UseRedisForClusterSync: true
+        appSettings:ClusterFilesFolder: \\FILESERVER\PROD\Storage\Temp\PdfDocProcessing\PdfConverterController
+      health-check: null
+
+    - application: PreviewGenerationService
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    - application: PdfConvertMicroserviceMTConsumer
+      servers:
+        - SERVICESERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        Settings:RabbitMqHost: PROGSERVER_FQDN
+        Settings:RabbitMqUsername: RABBITMQ_USERNAME
+        Settings:RabbitMqPassword: RABBITMQ_PASSWORD
+        Settings:FileSharePath: \\FILESERVER\PROD\Storage\Temp\PdfDocProcessing\PixEditPdfConverter\
+      health-check: null
+
+    - application: PdfConvertMicroserviceMTGarbageCollector
+      servers:
+        - SERVICESERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        Settings:RabbitMqHost: PROGSERVER_FQDN
+        Settings:RabbitMqUsername: RABBITMQ_USERNAME
+        Settings:RabbitMqPassword: RABBITMQ_PASSWORD
+        Settings:FileSharePath: \\FILESERVER\PROD\Storage\Temp\PdfDocProcessing\PixEditPdfConverter\
+      health-check: null
+
+    - application: DocumentDeliveryService
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    - application: DocumentDeliveryStatusService
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    # - application: ElasticSearchService
+      # servers:
+        # - SERVICESERVER
+      # parameters:
+        # # Colon-notation maps to nested JSON in appsettings.Production.json
+        # appSettings:TransportType: RabbitMQ
+        # appSettings:RabbitMQHost: PROGSERVER_FQDN:5672
+        # appSettings:RabbitMQUsername: RABBITMQ_USERNAME
+        # appSettings:RabbitMQPassword: RABBITMQ_PASSWORD
+      # health-check: null
+
+    # - application: ElasticSearchService.QueueListener
+      # servers:
+        # - SERVICESERVER
+      # parameters:
+        # # Colon-notation maps to nested JSON in appsettings.Production.json
+        # appSettings:TransportType: RabbitMQ
+        # appSettings:RabbitMQHost: PROGSERVER_FQDN:5672
+        # appSettings:RabbitMQUsername: RABBITMQ_USERNAME
+        # appSettings:RabbitMQPassword: RABBITMQ_PASSWORD
+      # health-check: null
+
+    - application: Elements.ElementsScheduler
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    - application: Elements.SvarInn
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    - application: eSignaturePollingService
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    - application: EinnsynPushService
+      servers:
+        - SERVICESERVER
+      health-check: null
+
+    - application: Elements.AutomaticRequestForInformationService
+      servers:
+        - SERVICESERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        appSettings:TransportType: RabbitMQ
+        appSettings:RabbitMQHost: PROGSERVER_FQDN:5672
+        appSettings:RabbitMQUsername: RABBITMQ_USERNAME
+        appSettings:RabbitMQPassword: RABBITMQ_PASSWORD
+      health-check: null
+
+    - application: NotificationService
+      servers:
+        - SERVICESERVER
+      health-check: null
+      
+    - application: NotificationBatch
+      servers:
+        - SERVICESERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        AppSettings:PostgresConnectionString: host=PROGSERVER_FQDN;port=5432;database=NOTIFICATION_DB_NAME;user id=NOTIFICATION_DB_USER;password=NOTIFICATION_DB_PASSWORD;timezone=GMT
+      health-check: null
+      
+    # - application: PixEditPdfConverter
+      # servers:
+        # - SERVICESERVER
+      # parameters:
+        # # Colon-notation maps to nested JSON in appsettings.Production.json
+        # appSettings:UseRedisForClusterSync: true
+        # appSettings:ClusterFilesFolder: \\FILESERVER\PROD\Storage\Temp\PdfDocProcessing\PdfConverterController
+        # Kestrel:Endpoints:HttpsInlineCertFile:Url: https://SERVICESERVER_FQDN:7272
+        # Kestrel:Endpoints:HttpsInlineCertFile:Certificate:Subject: SERVICESERVER_FQDN
+        # Kestrel:Endpoints:HttpsInlineCertFile:Certificate:Store: My
+        # Kestrel:Endpoints:HttpsInlineCertFile:Certificate:Location: LocalMachine
+        # Kestrel:Endpoints:HttpsInlineCertFile:Certificate:AllowInvalid: true
+      # health-check: null
+      
+# SEARCHSERVER:
+    - application: Indexer.Tracker
+      servers:
+        - SEARCHSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        AppSettings:TrackerDbConnectionString: host=PROGSERVER_FQDN;port=5432;database=INDEXERTRACKER_DB_NAME;user id=INDEXERTRACKER_DB_USER;password=INDEXERTRACKER_DB_PASSWORD;timezone=GMT
+        ExternalApi:BaseUrl: https://SEARCHSERVER_FQDN/Indexer.Tracker
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/Indexer.Tracker/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+        
+    - application: Indexer.Meta
+      servers:
+        - SEARCHSERVER
+      parameters:
+        # Colon-notation maps to nested JSON in appsettings.Production.json
+        ExternalApi:BaseUrl: https://SEARCHSERVER_FQDN/Indexer.Meta
+      health-check:
+        url: "https://FRONTENDSERVER_FQDN/Indexer.Meta/api/version"
+        timeout-seconds: 30
+        retry-count: 5
+        retry-interval-seconds: 5
+        expected-status: "200"
+
+    - application: Indexer.Crawler
+      servers:
+        - SEARCHSERVER
+      health-check: null
+
+    - application: Indexer.Inbox
+      servers:
+        - SEARCHSERVER
+      health-check: null
+
+##### 
+# The following applications have no install information at this time - can be added manually:
+# - AddressProvider.Hjemmelshaver
+# - AddressProviders.Folkeregisteret2
+# - DiBKAdapter
+# - Elements.AddressProviders.FiksFolkeregister
+# - Elements.AddressProviders.Part3 (SKD ONLY)
+# - Elements.Analytics
+# - Elements.SchemaAdministrator
+# - Elements.Wizard
+# - ffmpeg
+# - FormDataImportService
+# - FormDataUploader
+# - IAM2Elements.Host
+# - MassUpdate (SKD ONLY?)
+# - queueconverter
