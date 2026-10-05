@@ -119,6 +119,18 @@ public sealed class DeploymentContext
             : ApplicationManifest.Application.Iis?.ApplicationPath ?? string.Empty;
 
     /// <summary>
+    /// Resolved IIS app pool name: when the deployment block sets <c>application-name-override</c>
+    /// the pool is named after the override (path separators become '.', as they are not valid in
+    /// pool names), otherwise the application manifest's <c>iis.app-pool.name</c>.
+    /// Pipeline steps and adapters should read this instead of
+    /// <c>ApplicationManifest.Application.Iis.AppPool.Name</c> directly.
+    /// </summary>
+    public string EffectiveAppPoolName =>
+        !string.IsNullOrWhiteSpace(Deployment.ApplicationNameOverride)
+            ? Deployment.ApplicationNameOverride.Trim('/', '\\').Replace('/', '.').Replace('\\', '.')
+            : ApplicationManifest.Application.Iis?.AppPool.Name ?? string.Empty;
+
+    /// <summary>
     /// Resolved target version: the deployment-block version if set, otherwise the
     /// application manifest's own version field.  Pipeline steps should always read
     /// this rather than <c>Deployment.Version</c> directly.

@@ -29,7 +29,7 @@ public sealed class IisAdapter : IApplicationAdapter
 
     public async Task<bool> IsRunningAsync(DeploymentContext context, CancellationToken cancellationToken = default)
     {
-        var poolName = context.ApplicationManifest.Application.Iis!.AppPool.Name;
+        var poolName = context.EffectiveAppPoolName;
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
             Import-Module WebAdministration -ErrorAction SilentlyContinue
@@ -44,7 +44,7 @@ public sealed class IisAdapter : IApplicationAdapter
 
     public async Task StopAsync(DeploymentContext context, CancellationToken cancellationToken = default)
     {
-        var poolName = context.ApplicationManifest.Application.Iis!.AppPool.Name;
+        var poolName = context.EffectiveAppPoolName;
 
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
@@ -74,7 +74,7 @@ public sealed class IisAdapter : IApplicationAdapter
 
     public async Task StartAsync(DeploymentContext context, CancellationToken cancellationToken = default)
     {
-        var poolName = context.ApplicationManifest.Application.Iis!.AppPool.Name;
+        var poolName = context.EffectiveAppPoolName;
 
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
@@ -101,6 +101,7 @@ public sealed class IisAdapter : IApplicationAdapter
     {
         var iis     = context.ApplicationManifest.Application.Iis!;
         var pool    = iis.AppPool;
+        var poolName = context.EffectiveAppPoolName;  // follows application-name-override
         var account = context.EffectiveAccount;  // resolved: per-app → env default → built-in fallback
 
         // CLR version: empty string = No Managed Code (.NET Core), "v4.0" = .NET Framework
@@ -135,7 +136,7 @@ public sealed class IisAdapter : IApplicationAdapter
             1 => "NT AUTHORITY\\LOCAL SERVICE",
             2 => "NT AUTHORITY\\NETWORK SERVICE",
             3 => userName,                          // specific domain account
-            _ => $"IIS AppPool\\{pool.Name}"        // ApplicationPoolIdentity virtual account
+            _ => $"IIS AppPool\\{poolName}"        // ApplicationPoolIdentity virtual account
         };
         var aclGrantPs = aclAccount is null ? string.Empty :
             $"icacls \"$physPath\" /grant \"{aclAccount}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
@@ -176,7 +177,7 @@ try {{
 $ErrorActionPreference = 'Stop'
 
 $appcmd   = ""$env:SystemRoot\system32\inetsrv\appcmd.exe""
-$poolName = '{EscapePs(pool.Name)}'
+$poolName = '{EscapePs(poolName)}'
 $siteName = '{EscapePs(iis.SiteName)}'
 $appName  = '{EscapePs(appName)}'
 $physPath = '{EscapePs(context.EffectiveInstallDirectory)}'
@@ -213,7 +214,7 @@ if ($poolInfo) {{
     if ($LASTEXITCODE -ne 0) {{ throw ""appcmd add apppool failed (exit $LASTEXITCODE)"" }}
     Write-Output ""App pool created: $poolName""
 }}
-{(identityType == 3 ? $@"& $appcmd set apppool '{EscapePs(pool.Name)}' ""/processModel.userName:{EscapePs(userName)}"" ""/processModel.password:{EscapePs(password)}""
+{(identityType == 3 ? $@"& $appcmd set apppool '{EscapePs(poolName)}' ""/processModel.userName:{EscapePs(userName)}"" ""/processModel.password:{EscapePs(password)}""
 if ($LASTEXITCODE -ne 0) {{ throw 'appcmd set apppool identity failed (exit ' + $LASTEXITCODE + ')' }}" : string.Empty)}
 
 # --- Web Application (WebAdministration) ---
@@ -266,7 +267,7 @@ $ErrorActionPreference = 'Stop'
 $appcmd   = ""$env:SystemRoot\system32\inetsrv\appcmd.exe""
 $siteName = '{EscapePs(iis.SiteName)}'
 $appName  = '{EscapePs(appName)}'
-$poolName = '{EscapePs(iis.AppPool.Name)}'
+$poolName = '{EscapePs(context.EffectiveAppPoolName)}'
 
 # --- Remove web application (WebAdministration) ---
 Import-Module WebAdministration -ErrorAction SilentlyContinue
@@ -302,7 +303,7 @@ if (Test-Path $appcmd) {{
             $@"
             Import-Module WebAdministration -ErrorAction SilentlyContinue
             $appName  = '{EscapePs(context.EffectiveIisApplicationPath)}'.TrimStart('/')
-            $poolPath = 'IIS:\AppPools\{EscapePs(iis.AppPool.Name)}'
+            $poolPath = 'IIS:\AppPools\{EscapePs(context.EffectiveAppPoolName)}'
             $appPath  = ""IIS:\Sites\{EscapePs(iis.SiteName)}\$appName""
 
             $poolState = if (Test-Path $poolPath) {{ (Get-Item $poolPath).State }} else {{ 'Not installed' }}
