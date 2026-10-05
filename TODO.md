@@ -1,1 +1,0 @@
-1. Installing with `application-name-override` installs two instances: One with the original name and one with the override name. Only override should be installed. ApplicationPool name should reflect application name.
