@@ -128,6 +128,12 @@ No need to create GitHub Releases manually — CI handles it on tag push.
 
 ---
 
+## TODO.md
+
+`TODO.md` in the repo root is the owner's list of things that need fixing. When asked to work on it, implement the items and **delete each item from the file once it is fixed** (no "done" markers or changelog — git history is the record). Include the `TODO.md` edit in the same commit as the fix, so the file stays a short, live document.
+
+---
+
 ## Environment manifest optional fields (recent additions)
 
 ```yaml
