@@ -5,7 +5,7 @@
 A .NET 10 / C# 13 CLI tool (`installer.exe`) for deploying ~70 Windows Service and IIS applications to remote servers over WinRM. It replaces manual install scripts and ad-hoc Chocolatey invocations with a declarative YAML-driven workflow.
 
 **GitHub:** https://github.com/yfag/InstallerFramework  
-**Current version:** v1.0.8  
+**Current version:** v1.0.9  
 **Owner:** Yngve Fagerheim (yngve.fagerheim@sikri.no)
 
 ---
@@ -151,7 +151,7 @@ environment:
 
 ---
 
-## What's been built and working (as of v1.0.8)
+## What's been built and working (as of v1.0.9)
 
 - Full deploy pipeline with rollback
 - Windows Service and IIS application support
