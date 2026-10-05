@@ -50,6 +50,8 @@ public static class StatusCommand
                 return;
             }
 
+            LogRetention.Prune(envManifest.Environment.LogRetentionFiles);
+
             var table = new Table()
                 .Border(TableBorder.Rounded)
                 .Title($"[bold]Status — {Markup.Escape(envManifest.Environment.Name)}[/]")

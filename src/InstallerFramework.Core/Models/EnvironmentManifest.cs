@@ -41,6 +41,13 @@ public class EnvironmentConfig
     [YamlMember(Alias = "backup-retention-days")]
     public int BackupRetentionDays { get; set; } = 7;
 
+    /// <summary>
+    /// Number of installer log files (<c>log/installer_*.log</c> next to the exe) to keep.
+    /// Older files are deleted at the start of each run. Set to 0 to keep all log files.
+    /// </summary>
+    [YamlMember(Alias = "log-retention-files")]
+    public int LogRetentionFiles { get; set; } = 10;
+
     /// <summary>Root directory on target servers where backups are stored.</summary>
     [YamlMember(Alias = "backup-root")]
     public string BackupRoot { get; set; } = @"C:\InstallBackups";

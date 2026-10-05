@@ -195,6 +195,10 @@ environment:
   backup-root: C:\InstallBackups
   backup-retention-days: 7
 
+  # Number of installer log files to keep in the log/ folder next to the exe.
+  # Older files are deleted at the start of each run. Default 10; 0 keeps all.
+  log-retention-files: 10
+
   # Default service account for all applications in this environment.
   # Individual applications can override this with their own 'account:' field.
   # Omit the entire block to use built-in accounts (LocalSystem / ApplicationPoolIdentity).

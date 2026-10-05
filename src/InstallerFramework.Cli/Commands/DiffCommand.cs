@@ -52,6 +52,8 @@ public static class DiffCommand
                 return;
             }
 
+            LogRetention.Prune(envManifest.Environment.LogRetentionFiles);
+
             // Validate manifests first
             var validator = new ManifestValidator();
             var errors = validator.Validate(envManifest, appManifests);

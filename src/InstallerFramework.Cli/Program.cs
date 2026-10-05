@@ -17,9 +17,8 @@ var verbose = args.Contains("--verbose") || args.Contains("-v");
 // Console: Warning and above (quiet default) — or Information and above with --verbose.
 //          Spectre.Console output (spinner, summary table) is unaffected by this setting.
 // File:    Debug and above, one timestamped file per run, in a 'log' subfolder next to the exe.
-var logDir  = Path.Combine(AppContext.BaseDirectory, "log");
-Directory.CreateDirectory(logDir);
-var logFile = Path.Combine(logDir, $"installer_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+Directory.CreateDirectory(LogRetention.LogDirectory);
+var logFile = Path.Combine(LogRetention.LogDirectory, $"installer_{DateTime.Now:yyyyMMdd_HHmmss}.log");
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()

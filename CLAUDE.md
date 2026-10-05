@@ -65,7 +65,8 @@ Same pattern for IIS virtual path: `DeploymentContext.EffectiveIisApplicationPat
 ### Logging / verbosity
 - Serilog is configured in `Program.cs` before command parsing (pre-scan args for `--verbose`/`-v`)
 - Console: `Warning` level by default, `Information` when `--verbose`
-- Log files: always written at `Debug` level to `log/<timestamp>.log` next to the exe
+- Log files: always written at `Debug` level to `log/installer_<timestamp>.log` next to the exe
+- Old log files are pruned by `LogRetention.Prune` (Cli) using `log-retention-files` from the env manifest (default 10, `0` = keep all). It runs right after the env manifest is loaded in install/uninstall/validate/status/diff; the current run's log is always kept
 - The summary table (Spectre.Console) is always shown regardless of verbosity
 
 ### Service accounts (three-level resolution)
@@ -137,13 +138,15 @@ No need to create GitHub Releases manually — CI handles it on tag push.
 ## Environment manifest optional fields (recent additions)
 
 ```yaml
-deployments:
-  - application: Elements.ConfigServer
-    application-name-override: ConfigServer     # Override IIS virtual path (IIS only)
-    install-directory-override: E:\MyApps\Svc   # Override install dir / physical path (any type)
-    version: 2.1.0                              # Pin version for this environment only
-    servers:
-      - SERVER-01
+environment:
+  log-retention-files: 10                         # Keep the newest N installer log files (0 = keep all)
+  deployments:
+    - application: Elements.ConfigServer
+      application-name-override: ConfigServer     # Override IIS virtual path (IIS only)
+      install-directory-override: E:\MyApps\Svc   # Override install dir / physical path (any type)
+      version: 2.1.0                              # Pin version for this environment only
+      servers:
+        - SERVER-01
 ```
 
 ---

@@ -98,6 +98,7 @@ public sealed class DeploymentService
     {
         var envManifest  = _manifestLoader.LoadEnvironmentManifest(environmentManifestPath);
         var appManifests = _manifestLoader.LoadApplicationManifests(envManifest, environmentManifestPath);
+        LogRetention.Prune(envManifest.Environment.LogRetentionFiles);
         return _manifestValidator.Validate(envManifest, appManifests);
     }
 
@@ -122,6 +123,7 @@ public sealed class DeploymentService
     {
         var envManifest  = _manifestLoader.LoadEnvironmentManifest(environmentManifestPath);
         var appManifests = _manifestLoader.LoadApplicationManifests(envManifest, environmentManifestPath);
+        LogRetention.Prune(envManifest.Environment.LogRetentionFiles);
 
         // Validate before touching any server
         var errors = _manifestValidator.Validate(envManifest, appManifests);
@@ -178,6 +180,7 @@ public sealed class DeploymentService
     {
         var envManifest  = _manifestLoader.LoadEnvironmentManifest(environmentManifestPath);
         var appManifests = _manifestLoader.LoadApplicationManifests(envManifest, environmentManifestPath);
+        LogRetention.Prune(envManifest.Environment.LogRetentionFiles);
 
         var deployments = envManifest.Environment.Deployments
             .Where(d => applicationName is null ||
