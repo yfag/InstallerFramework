@@ -79,7 +79,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
         var account = context.EffectiveAccount;  // resolved: per-app → env default → built-in fallback
 
         var installDir = context.EffectiveInstallDirectory;
-        var binaryPath = Path.Combine(installDir, $"{svc.Name}.exe");
+        var binaryPath = await ResolveExecutablePathAsync(context, svc, installDir, cancellationToken);
         if (!string.IsNullOrWhiteSpace(svc.BinaryPathSuffix))
             binaryPath += $" {svc.BinaryPathSuffix}";
 
@@ -162,6 +162,65 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
             if (aclResult.Success && !string.IsNullOrWhiteSpace(aclResult.Output))
                 _logger.LogInformation("[{App}@{Server}] {AclOut}", context.ApplicationName, context.TargetServer, aclResult.Output.Trim());
         }
+    }
+
+    /// <summary>
+    /// Finds the service executable in the deployed install directory.
+    /// Packages do not consistently name the exe after the service (e.g. a service called
+    /// <c>Elements.Foo</c> may ship <c>FooService.exe</c>), so the name is not assumed:
+    /// <list type="bullet">
+    ///   <item>One .exe → that file.</item>
+    ///   <item>Several → the one named after the service, otherwise an error listing them.</item>
+    ///   <item>None → falls back to <c>{service name}.exe</c> with a warning.</item>
+    /// </list>
+    /// Chocolatey helper executables are ignored. Top-level files are preferred over nested ones.
+    /// </summary>
+    private async Task<string> ResolveExecutablePathAsync(
+        DeploymentContext context, ServiceConfig svc, string installDir, CancellationToken cancellationToken)
+    {
+        var result = await context.Remote.ExecuteScriptAsync(
+            $@"
+            $dir = '{EscapePs(installDir)}'
+            $exes = @(Get-ChildItem -LiteralPath $dir -Filter *.exe -File -ErrorAction SilentlyContinue)
+            if ($exes.Count -eq 0) {{
+                $exes = @(Get-ChildItem -LiteralPath $dir -Filter *.exe -File -Recurse -ErrorAction SilentlyContinue |
+                          Sort-Object {{ $_.FullName.Split('\').Count }})
+            }}
+            $exes | Where-Object {{ $_.Name -notlike 'chocolatey*' -and $_.Name -ne 'shimgen.exe' }} |
+                ForEach-Object {{ $_.FullName }}
+            ",
+            cancellationToken: cancellationToken);
+
+        if (!result.Success)
+            throw new InvalidOperationException(
+                $"Could not look for the service executable in '{installDir}': {result.Errors}");
+
+        var exes = result.Output
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        string? chosen = exes.Count == 1
+            ? exes[0]
+            : exes.FirstOrDefault(e => Path.GetFileNameWithoutExtension(e)
+                .Equals(svc.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (chosen is null && exes.Count > 1)
+            throw new InvalidOperationException(
+                $"Found {exes.Count} executables in '{installDir}' and none is named after service " +
+                $"'{svc.Name}', so the service executable is ambiguous: {string.Join(", ", exes.Select(Path.GetFileName))}");
+
+        if (chosen is null)
+        {
+            var fallback = Path.Combine(installDir, $"{svc.Name}.exe");
+            _logger.LogWarning(
+                "[{App}@{Server}] No .exe found in '{Dir}'; using '{Fallback}' as the service binary.",
+                context.ApplicationName, context.TargetServer, installDir, fallback);
+            return fallback;
+        }
+
+        _logger.LogDebug("[{App}@{Server}] Service executable: {Exe}",
+            context.ApplicationName, context.TargetServer, chosen);
+        return chosen;
     }
 
     public async Task UnregisterAsync(DeploymentContext context, CancellationToken cancellationToken = default)

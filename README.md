@@ -337,7 +337,8 @@ application:
     description: "Processes incoming messages from the queue."
     start-type: automatic-delayed   # automatic-delayed | automatic | manual | disabled
     # account:                      # Optional: overrides environment default (domain-account.account)
-    install-directory: C:\Program Files\MyService
+    install-directory: C:\Program Files\MyService   # The service .exe is found here at install time —
+                                                     # it does not need to be named after the service.
     # binary-path-suffix: --environment Production   # Optional suffix added to sc.exe binary path
 
   configuration:
