@@ -559,6 +559,19 @@ domain-account:
   account: DOMAIN\svc-elements$
 ```
 
+### Account name format
+
+The account name is passed to Windows as written, so it must be a name the *target server* can resolve. Use the account's `sAMAccountName` (for a gMSA, ending in `$`) after the domain, which can be written in two forms:
+
+- NetBIOS: `DOMAIN\svc-elements$`
+- DNS: `domain.example.com\svc-elements$`
+
+Some Active Directory setups only resolve one of the two. If the installer fails with *"Cannot resolve the app pool account"*, check the name against the account's `sAMAccountName`, then try the other domain form. For example, one site only accepted `statped.no\SVC-Elements$` and not `STATPED\SVC-Elements$`. You can test a name directly on the target server:
+
+```powershell
+([System.Security.Principal.NTAccount]'domain.example.com\svc-elements$').Translate([System.Security.Principal.SecurityIdentifier])
+```
+
 ### Regular domain accounts
 
 Accounts without a trailing `$` require a password. The installer collects it once per unique account name before any server-side changes begin.

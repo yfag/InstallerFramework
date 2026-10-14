@@ -148,9 +148,9 @@ public sealed class IisAdapter : IApplicationAdapter
             "try { [void]([System.Security.Principal.NTAccount]$aclAccount).Translate([System.Security.Principal.SecurityIdentifier]) }\n" +
             "catch {\n" +
             "    throw \"Cannot resolve the app pool account '$aclAccount' on $env:COMPUTERNAME. \" +\n" +
-            "          \"Most likely the name is wrong: check that DOMAIN\\name matches the account's sAMAccountName \" +\n" +
-            "          \"(a gMSA ends with '$') and that DOMAIN is the NetBIOS domain name. \" +\n" +
-            "          \"Otherwise check that this server can reach the domain (nltest /dsgetdc:DOMAIN). \" +\n" +
+            "          \"Most likely the name is wrong: check that name matches the account's sAMAccountName \" +\n" +
+            "          \"(a gMSA ends with '$'), then try the other domain form: NetBIOS (DOMAIN\\name) or DNS (domain.tld\\name); \" +\n" +
+            "          \"some AD setups only resolve one. Otherwise check that this server can reach the domain (nltest /dsgetdc:DOMAIN). \" +\n" +
             "          \"Detail: $($_.Exception.InnerException.Message)\"\n" +
             "}\n";
         // Defined (and, for specific users, verified) at the very top of the script — before the app
