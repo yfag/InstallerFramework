@@ -162,7 +162,11 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
                 $"if ($LASTEXITCODE -ne 0) {{ Write-Warning \"icacls grant returned exit $LASTEXITCODE\" }}\n" +
                 $"else {{ Write-Output \"File permissions set: ${{aclAccount}} has ReadAndExecute\" }}";
             var aclResult = await context.Remote.ExecuteScriptAsync(aclScript, cancellationToken: cancellationToken);
-            if (aclResult.Success && !string.IsNullOrWhiteSpace(aclResult.Output))
+            if (!aclResult.Success)
+                _logger.LogWarning(
+                    "[{App}@{Server}] Could not grant '{Account}' read/execute on '{Dir}': {Error}",
+                    context.ApplicationName, context.TargetServer, account.AccountName, installDir, aclResult.Errors);
+            else if (!string.IsNullOrWhiteSpace(aclResult.Output))
                 _logger.LogInformation("[{App}@{Server}] {AclOut}", context.ApplicationName, context.TargetServer, aclResult.Output.Trim());
         }
     }

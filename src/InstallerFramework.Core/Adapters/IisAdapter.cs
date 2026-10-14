@@ -141,11 +141,26 @@ public sealed class IisAdapter : IApplicationAdapter
         // The account goes into a single-quoted variable and is referenced as ${aclAccount}:
         // gMSA names end with '$', which PowerShell would otherwise parse as a variable
         // reference inside a double-quoted string ("DOMAIN\svc$:(OI)...").
+        // For a specific user (domain account / gMSA) resolve the name first, so an account the
+        // server cannot see fails with an actionable message instead of a bare
+        // "No mapping between account names and security IDs was done".
+        var aclResolvePs = identityType != 3 ? string.Empty :
+            "try { [void]([System.Security.Principal.NTAccount]$aclAccount).Translate([System.Security.Principal.SecurityIdentifier]) }\n" +
+            "catch {\n" +
+            "    throw \"Cannot resolve the app pool account '$aclAccount' on $env:COMPUTERNAME. Check the account name and domain. \" +\n" +
+            "          \"For a gMSA, it must be installed on this server (Install-ADServiceAccount; verify with Test-ADServiceAccount) \" +\n" +
+            "          \"and the server must be allowed to retrieve its password. Detail: $($_.Exception.InnerException.Message)\"\n" +
+            "}\n";
+        // icacls writes failures to stderr; with $ErrorActionPreference='Stop' that would throw before
+        // the exit-code check below, so run it with 'Continue' and judge by the exit code.
         var aclGrantPs = aclAccount is null ? string.Empty :
             $"$aclAccount = '{EscapePs(aclAccount)}'\n" +
-            $"icacls \"$physPath\" /grant \"${{aclAccount}}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
-            $"if ($LASTEXITCODE -ne 0) {{ Write-Warning \"icacls grant returned exit $LASTEXITCODE\" }}\n" +
-            $"else {{ Write-Output \"File permissions set: ${{aclAccount}} has ReadAndExecute on $physPath\" }}";
+            aclResolvePs +
+            "$prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'\n" +
+            "icacls \"$physPath\" /grant \"${aclAccount}:(OI)(CI)RX\" /T /Q 2>&1 | Out-Null\n" +
+            "$icaclsExit = $LASTEXITCODE; $ErrorActionPreference = $prevEap\n" +
+            "if ($icaclsExit -ne 0) { Write-Warning \"icacls grant returned exit $icaclsExit\" }\n" +
+            "else { Write-Output \"File permissions set: ${aclAccount} has ReadAndExecute on $physPath\" }";
 
         // ASPNETCORE_ENVIRONMENT must be set on the app pool so the worker process loads the
         // correct appsettings.{env}.json overlay at runtime.  We only do this for .NET Core
