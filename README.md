@@ -452,7 +452,15 @@ installer.exe status --env <file> [options]
 | `--app <name>` | `-a` | Show status for this application only. |
 | `--server <name>` | `-s` | Show status for this server only. |
 
-Displays a table with Target Version, Installed Version, and running state (Running / Stopped / Not Installed).
+Displays a table with Target Version, Installed Version, and running state. Running is shown in green, installed-but-stopped in red, and not installed in yellow.
+
+Below the table a summary line counts the results per application × server (an application deployed to two servers counts twice):
+
+```
+Installed: 12   Running: 10   Stopped: 2   Not installed: 1
+```
+
+*Installed* is *Running* plus *Stopped*. For IIS, an application counts as running only when both its app pool is started and the web application is registered; any other installed combination counts as stopped. A `Not installed` count and an `Errors` count (for example, a server that cannot be reached) appear only when they are above zero.
 
 ---
 

@@ -21,7 +21,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
         var serviceName = context.ApplicationManifest.Application.Service!.Name;
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
-            $svc = Get-Service -Name '{EscapePs(serviceName)}' -ErrorAction SilentlyContinue
+            {ServiceLookupPs(serviceName)}
             if ($null -eq $svc) {{ Write-Output 'NotFound' }}
             else {{ Write-Output $svc.Status.ToString() }}
             ",
@@ -37,7 +37,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
 
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
-            $svc = Get-Service -Name '{EscapePs(serviceName)}' -ErrorAction SilentlyContinue
+            {ServiceLookupPs(serviceName)}
             if ($null -ne $svc -and $svc.Status -eq 'Running') {{
                 Stop-Service -Name '{EscapePs(serviceName)}' -Force
                 $svc.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(60))
@@ -114,7 +114,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
 
         // Check if service already exists
         var existsResult = await context.Remote.ExecuteScriptAsync(
-            $"(Get-Service -Name '{EscapePs(svc.Name)}' -ErrorAction SilentlyContinue) -ne $null",
+            $"$null -ne {ServiceExistsPs(svc.Name)}",
             cancellationToken: cancellationToken);
         var serviceExists = existsResult.Output.Trim().Equals("True", StringComparison.OrdinalIgnoreCase);
 
@@ -236,7 +236,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
 
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
-            $svc = Get-Service -Name '{EscapePs(serviceName)}' -ErrorAction SilentlyContinue
+            {ServiceLookupPs(serviceName)}
             if ($null -ne $svc) {{
                 if ($svc.Status -eq 'Running') {{
                     Stop-Service -Name '{EscapePs(serviceName)}' -Force
@@ -259,7 +259,7 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
         var serviceName = context.ApplicationManifest.Application.Service!.Name;
         var result = await context.Remote.ExecuteScriptAsync(
             $@"
-            $svc = Get-Service -Name '{EscapePs(serviceName)}' -ErrorAction SilentlyContinue
+            {ServiceLookupPs(serviceName)}
             if ($null -eq $svc) {{ Write-Output 'Not installed' }}
             else {{
                 $identity = (Get-WmiObject Win32_Service -Filter ""Name='{EscapePs(serviceName)}'"").StartName
@@ -378,6 +378,17 @@ try {{
 }}
 ";
     }
+
+    // Service lookup without Get-Service's "not found" error. In a hosted runspace that error marks
+    // the whole script as failed (HadErrors) even with -ErrorAction SilentlyContinue/Ignore, which
+    // turned "service not installed" into an error. WMI returns $null for a missing service, and
+    // Get-Service (which then cannot fail) is only called when the service exists.
+    // The filter is built by concatenation so the name never sits inside a double-quoted string.
+    private static string ServiceExistsPs(string name) =>
+        $@"(Get-WmiObject Win32_Service -Filter (""Name='"" + '{EscapePs(name)}' + ""'""))";
+
+    private static string ServiceLookupPs(string name) =>
+        $@"$svc = if ({ServiceExistsPs(name)}) {{ Get-Service -Name '{EscapePs(name)}' }} else {{ $null }}";
 
     private static string EscapePs(string s) => s.Replace("'", "''").Replace("\"", "`\"");
 

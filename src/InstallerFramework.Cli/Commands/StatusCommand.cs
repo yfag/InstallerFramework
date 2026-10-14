@@ -64,6 +64,8 @@ public static class StatusCommand
             var deployments = envManifest.Environment.Deployments
                 .Where(d => app is null || d.Application.Equals(app, StringComparison.OrdinalIgnoreCase));
 
+            var counts = new Dictionary<AppState, int>();
+
             foreach (var deployment in deployments)
             {
                 if (!appManifests.TryGetValue(deployment.Application, out var appManifest)) continue;
@@ -73,13 +75,20 @@ public static class StatusCommand
 
                 foreach (var targetServer in servers)
                 {
-                    var (installedVersion, status) = await GetServerStatusAsync(
+                    var (installedVersion, state, status) = await GetServerStatusAsync(
                         appManifest, deployment, targetServer, envManifest.Environment, loggerFactory);
 
-                    var statusMark = status.StartsWith("Running", StringComparison.OrdinalIgnoreCase) ||
-                                     status.StartsWith("Started", StringComparison.OrdinalIgnoreCase)
-                        ? $"[green]{Markup.Escape(status)}[/]"
-                        : $"[yellow]{Markup.Escape(status)}[/]";
+                    counts[state] = counts.GetValueOrDefault(state) + 1;
+
+                    // Running = green, installed but stopped = red, not installed = yellow, error = red.
+                    var color = state switch
+                    {
+                        AppState.Running => "green",
+                        AppState.Stopped => "red",
+                        AppState.Error   => "red",
+                        _                => "yellow"
+                    };
+                    var statusMark = $"[{color}]{Markup.Escape(status)}[/]";
 
                     var targetVersion = DeploymentService.ResolveEffectiveVersion(appManifest, deployment);
                     table.AddRow(
@@ -92,12 +101,54 @@ public static class StatusCommand
             }
 
             AnsiConsole.Write(table);
+
+            // Summary — counted per application × server, so an app deployed to two servers counts twice.
+            var running   = counts.GetValueOrDefault(AppState.Running);
+            var stopped   = counts.GetValueOrDefault(AppState.Stopped);
+            var notInst   = counts.GetValueOrDefault(AppState.NotInstalled);
+            var errors    = counts.GetValueOrDefault(AppState.Error);
+
+            var summary = $"Installed: [bold]{running + stopped}[/]   " +
+                          $"Running: [green]{running}[/]   " +
+                          $"Stopped: {(stopped > 0 ? $"[red]{stopped}[/]" : stopped.ToString())}";
+            if (notInst > 0) summary += $"   Not installed: [yellow]{notInst}[/]";
+            if (errors > 0)  summary += $"   Errors: [red]{errors}[/]";
+            AnsiConsole.MarkupLine(summary);
         }, envOption, appOption, serverOption);
 
         return command;
     }
 
-    private static async Task<(string? InstalledVersion, string Status)> GetServerStatusAsync(
+    private enum AppState { Running, Stopped, NotInstalled, Error }
+
+    /// <summary>
+    /// Classifies the status text returned by an adapter's <c>GetStatusAsync</c>.
+    /// Installed = Running or Stopped. "Stopped" means installed but not running, including
+    /// any non-running service state (Paused, StartPending, ...) and a partially registered IIS app.
+    /// </summary>
+    private static AppState Classify(ApplicationType type, string status)
+    {
+        if (status.StartsWith("Unknown", StringComparison.OrdinalIgnoreCase)) return AppState.Error;
+        if (status.StartsWith("Not installed", StringComparison.OrdinalIgnoreCase)) return AppState.NotInstalled;
+
+        if (type == ApplicationType.IisApplication)
+        {
+            // Format: "Pool: <state|Not installed> | App: <Registered|Not registered> | Identity: ..."
+            var poolStarted   = status.Contains("Pool: Started", StringComparison.OrdinalIgnoreCase);
+            var poolMissing   = status.Contains("Pool: Not installed", StringComparison.OrdinalIgnoreCase);
+            var appRegistered = status.Contains("App: Registered", StringComparison.OrdinalIgnoreCase);
+
+            if (poolMissing && !appRegistered) return AppState.NotInstalled;
+            return poolStarted && appRegistered ? AppState.Running : AppState.Stopped;
+        }
+
+        // Windows Service format: "<Status> (Identity: ...)"
+        return status.StartsWith("Running", StringComparison.OrdinalIgnoreCase)
+            ? AppState.Running
+            : AppState.Stopped;
+    }
+
+    private static async Task<(string? InstalledVersion, AppState State, string Status)> GetServerStatusAsync(
         ApplicationManifest appManifest,
         ApplicationDeployment deployment,
         string server,
@@ -146,11 +197,11 @@ public static class StatusCommand
             };
 
             var status = await adapter.GetStatusAsync(context);
-            return (installedVersion, status);
+            return (installedVersion, Classify(appManifest.Application.Type, status), status);
         }
         catch (Exception ex)
         {
-            return (null, $"[red]Error: {ex.Message}[/]");
+            return (null, AppState.Error, $"Error: {ex.Message}");
         }
     }
 }
