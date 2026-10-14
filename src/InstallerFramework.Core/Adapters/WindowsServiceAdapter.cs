@@ -153,11 +153,14 @@ public sealed class WindowsServiceAdapter : IApplicationAdapter
         // because robocopy uses /COPY:DAT and does not propagate source ACLs.
         if (!account.IsLocalSystem) // LocalSystem has implicit full access; all others need explicit grant
         {
+            // Values go into single-quoted variables and are referenced as ${var}: gMSA names end
+            // with '$', which PowerShell would parse as a variable reference inside "...".
             var aclScript =
-                $"icacls \"{EscapePs(installDir)}\" " +
-                $"/grant \"{EscapePs(account.AccountName)}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
+                $"$installDir = '{EscapePs(installDir)}'\n" +
+                $"$aclAccount = '{EscapePs(account.AccountName)}'\n" +
+                $"icacls \"${{installDir}}\" /grant \"${{aclAccount}}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
                 $"if ($LASTEXITCODE -ne 0) {{ Write-Warning \"icacls grant returned exit $LASTEXITCODE\" }}\n" +
-                $"else {{ Write-Output \"File permissions set: {EscapePs(account.AccountName)} has ReadAndExecute\" }}";
+                $"else {{ Write-Output \"File permissions set: ${{aclAccount}} has ReadAndExecute\" }}";
             var aclResult = await context.Remote.ExecuteScriptAsync(aclScript, cancellationToken: cancellationToken);
             if (aclResult.Success && !string.IsNullOrWhiteSpace(aclResult.Output))
                 _logger.LogInformation("[{App}@{Server}] {AclOut}", context.ApplicationName, context.TargetServer, aclResult.Output.Trim());

@@ -138,10 +138,14 @@ public sealed class IisAdapter : IApplicationAdapter
             3 => userName,                          // specific domain account
             _ => $"IIS AppPool\\{poolName}"        // ApplicationPoolIdentity virtual account
         };
+        // The account goes into a single-quoted variable and is referenced as ${aclAccount}:
+        // gMSA names end with '$', which PowerShell would otherwise parse as a variable
+        // reference inside a double-quoted string ("DOMAIN\svc$:(OI)...").
         var aclGrantPs = aclAccount is null ? string.Empty :
-            $"icacls \"$physPath\" /grant \"{aclAccount}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
+            $"$aclAccount = '{EscapePs(aclAccount)}'\n" +
+            $"icacls \"$physPath\" /grant \"${{aclAccount}}:(OI)(CI)RX\" /T /Q 2>$null | Out-Null\n" +
             $"if ($LASTEXITCODE -ne 0) {{ Write-Warning \"icacls grant returned exit $LASTEXITCODE\" }}\n" +
-            $"else {{ Write-Output \"File permissions set: {aclAccount} has ReadAndExecute on $physPath\" }}";
+            $"else {{ Write-Output \"File permissions set: ${{aclAccount}} has ReadAndExecute on $physPath\" }}";
 
         // ASPNETCORE_ENVIRONMENT must be set on the app pool so the worker process loads the
         // correct appsettings.{env}.json overlay at runtime.  We only do this for .NET Core
@@ -214,7 +218,7 @@ if ($poolInfo) {{
     if ($LASTEXITCODE -ne 0) {{ throw ""appcmd add apppool failed (exit $LASTEXITCODE)"" }}
     Write-Output ""App pool created: $poolName""
 }}
-{(identityType == 3 ? $@"& $appcmd set apppool '{EscapePs(poolName)}' ""/processModel.userName:{EscapePs(userName)}"" ""/processModel.password:{EscapePs(password)}""
+{(identityType == 3 ? $@"& $appcmd set apppool '{EscapePs(poolName)}' '/processModel.userName:{EscapePs(userName)}' '/processModel.password:{EscapePs(password)}'
 if ($LASTEXITCODE -ne 0) {{ throw 'appcmd set apppool identity failed (exit ' + $LASTEXITCODE + ')' }}" : string.Empty)}
 
 # --- Web Application (WebAdministration) ---
