@@ -34,7 +34,31 @@ public sealed class RegisterApplicationStep : IDeploymentStep
         }
         catch (Exception ex)
         {
+            // The orchestrator only rolls back steps that completed, so this step's own partial
+            // work (e.g. an app pool and web application created before a later error) would be
+            // left on the server. On a fresh install nothing existed before, so remove it now.
+            if (context.IsFreshInstall && !context.NoRollback)
+                await CleanUpPartialRegistrationAsync(adapter, context, cancellationToken);
+
             return StepResult.Fail($"Application registration failed: {ex.Message}");
+        }
+    }
+
+    private static async Task CleanUpPartialRegistrationAsync(
+        IApplicationAdapter adapter, DeploymentContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await adapter.UnregisterAsync(context, cancellationToken);
+            context.Logger.LogWarning(
+                "[{App}@{Server}] Registration failed — removed the partial registration.",
+                context.ApplicationName, context.TargetServer);
+        }
+        catch (Exception cleanupEx)
+        {
+            context.Logger.LogError(cleanupEx,
+                "[{App}@{Server}] Registration failed and the partial registration could not be removed — remove it manually.",
+                context.ApplicationName, context.TargetServer);
         }
     }
 

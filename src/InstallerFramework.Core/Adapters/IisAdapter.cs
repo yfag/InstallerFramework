@@ -151,11 +151,14 @@ public sealed class IisAdapter : IApplicationAdapter
             "          \"For a gMSA, it must be installed on this server (Install-ADServiceAccount; verify with Test-ADServiceAccount) \" +\n" +
             "          \"and the server must be allowed to retrieve its password. Detail: $($_.Exception.InnerException.Message)\"\n" +
             "}\n";
+        // Defined (and, for specific users, verified) at the very top of the script — before the app
+        // pool or web application are touched — so a bad account fails without leaving a
+        // half-registered site behind.
+        var aclPreflightPs = aclAccount is null ? string.Empty :
+            $"$aclAccount = '{EscapePs(aclAccount)}'\n" + aclResolvePs;
         // icacls writes failures to stderr; with $ErrorActionPreference='Stop' that would throw before
         // the exit-code check below, so run it with 'Continue' and judge by the exit code.
         var aclGrantPs = aclAccount is null ? string.Empty :
-            $"$aclAccount = '{EscapePs(aclAccount)}'\n" +
-            aclResolvePs +
             "$prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'\n" +
             "icacls \"$physPath\" /grant \"${aclAccount}:(OI)(CI)RX\" /T /Q 2>&1 | Out-Null\n" +
             "$icaclsExit = $LASTEXITCODE; $ErrorActionPreference = $prevEap\n" +
@@ -202,6 +205,7 @@ $appName  = '{EscapePs(appName)}'
 $physPath = '{EscapePs(context.EffectiveInstallDirectory)}'
 $clrVer   = '{EscapePs(clrVersion)}'
 
+{aclPreflightPs}
 if (-not (Test-Path $appcmd)) {{
     throw 'appcmd.exe not found at ' + $appcmd + '. IIS may not be installed correctly.'
 }}
