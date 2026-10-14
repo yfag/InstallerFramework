@@ -147,9 +147,11 @@ public sealed class IisAdapter : IApplicationAdapter
         var aclResolvePs = identityType != 3 ? string.Empty :
             "try { [void]([System.Security.Principal.NTAccount]$aclAccount).Translate([System.Security.Principal.SecurityIdentifier]) }\n" +
             "catch {\n" +
-            "    throw \"Cannot resolve the app pool account '$aclAccount' on $env:COMPUTERNAME. Check the account name and domain. \" +\n" +
-            "          \"For a gMSA, it must be installed on this server (Install-ADServiceAccount; verify with Test-ADServiceAccount) \" +\n" +
-            "          \"and the server must be allowed to retrieve its password. Detail: $($_.Exception.InnerException.Message)\"\n" +
+            "    throw \"Cannot resolve the app pool account '$aclAccount' on $env:COMPUTERNAME. \" +\n" +
+            "          \"Most likely the name is wrong: check that DOMAIN\\name matches the account's sAMAccountName \" +\n" +
+            "          \"(a gMSA ends with '$') and that DOMAIN is the NetBIOS domain name. \" +\n" +
+            "          \"Otherwise check that this server can reach the domain (nltest /dsgetdc:DOMAIN). \" +\n" +
+            "          \"Detail: $($_.Exception.InnerException.Message)\"\n" +
             "}\n";
         // Defined (and, for specific users, verified) at the very top of the script — before the app
         // pool or web application are touched — so a bad account fails without leaving a
